@@ -20,7 +20,7 @@ An [MCP](https://modelcontextprotocol.io/) server implementation that integrates
 1. Clone the repository to your local machine.
 
    ```bash
-   git clone https://github.com/couchbase-labs/mcp-server-couchbase.git
+   git clone https://github.com/Couchbase-Ecosystem/mcp-server-couchbase.git
    ```
 
 2. The MCP server can now be added to Claude Desktop by editing the configuration file. More detailed instructions can be found on the [MCP quickstart guide](https://modelcontextprotocol.io/quickstart/user).
