@@ -140,7 +140,7 @@ In the bottom panel of Cursor, click on "Output" and select "Cursor MCP" from th
 
 ---
 
-# 📢 Support Policy
+## 📢 Support Policy
 
 We truly appreciate your interest in this project!  
 This project is **community-maintained**, which means it's **not officially supported** by our support team.
