@@ -4,12 +4,12 @@ from mcp.server.fastmcp import FastMCP, Context
 from couchbase.cluster import Cluster
 from couchbase.auth import PasswordAuthenticator
 from couchbase.options import ClusterOptions
-import os
 import logging
 from dataclasses import dataclass
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
-
+from lark_sqlpp import modifies_data, modifies_structure, parse_sqlpp
+import click
 
 MCP_SERVER_NAME = "couchbase"
 
@@ -23,43 +23,117 @@ logger = logging.getLogger(MCP_SERVER_NAME)
 
 @dataclass
 class AppContext:
+    """Context for the MCP server."""
+
     cluster: Cluster | None = None
     bucket: Any | None = None
+    read_only_query_mode: bool = True
+
+
+def validate_required_param(
+    ctx: click.Context, param: click.Parameter, value: str | None
+) -> str:
+    """Validate that a required parameter is not empty."""
+    if not value or value.strip() == "":
+        raise click.BadParameter(f"{param.name} cannot be empty")
+    return value
+
+
+def get_settings() -> dict:
+    """Get settings from Click context."""
+    ctx = click.get_current_context()
+    return ctx.obj or {}
+
+
+@click.command()
+@click.option(
+    "--connection-string",
+    envvar="CB_CONNECTION_STRING",
+    help="Couchbase connection string",
+    callback=validate_required_param,
+)
+@click.option(
+    "--username",
+    envvar="CB_USERNAME",
+    help="Couchbase database user",
+    callback=validate_required_param,
+)
+@click.option(
+    "--password",
+    envvar="CB_PASSWORD",
+    help="Couchbase database password",
+    callback=validate_required_param,
+)
+@click.option(
+    "--bucket-name",
+    envvar="CB_BUCKET_NAME",
+    help="Couchbase bucket name",
+    callback=validate_required_param,
+)
+@click.option(
+    "--read-only-query-mode",
+    envvar="READ_ONLY_QUERY_MODE",
+    type=bool,
+    default=True,
+    help="Enable read-only query mode. Set to True (default) to allow only read-only queries. Can be set to False to allow data modification queries.",
+)
+@click.option(
+    "--transport",
+    envvar="MCP_TRANSPORT",
+    type=click.Choice(["stdio", "sse"]),
+    default="stdio",
+    help="Transport mode for the server (stdio or sse)",
+)
+@click.pass_context
+def main(
+    ctx,
+    connection_string,
+    username,
+    password,
+    bucket_name,
+    read_only_query_mode,
+    transport,
+):
+    """Couchbase MCP Server"""
+    ctx.obj = {
+        "connection_string": connection_string,
+        "username": username,
+        "password": password,
+        "bucket_name": bucket_name,
+        "read_only_query_mode": read_only_query_mode,
+    }
+    mcp.run(transport=transport)
 
 
 @asynccontextmanager
 async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
     """Initialize the Couchbase cluster and bucket for the MCP server."""
-    # Get environment variables
-    connection_string = os.getenv("CB_CONNECTION_STRING")
-    username = os.getenv("CB_USERNAME")
-    password = os.getenv("CB_PASSWORD")
-    bucket_name = os.getenv("CB_BUCKET_NAME")
+    # Get configuration from Click context
+    settings = get_settings()
 
-    # Validate environment variables
+    connection_string = settings.get("connection_string")
+    username = settings.get("username")
+    password = settings.get("password")
+    bucket_name = settings.get("bucket_name")
+    read_only_query_mode = settings.get("read_only_query_mode")
+
+    # Validate configuration
     missing_vars = []
     if not connection_string:
-        logger.error(
-            "Environment variable CB_CONNECTION_STRING with Couchbase connection string is not set"
-        )
-        missing_vars.append("CB_CONNECTION_STRING")
+        logger.error("Couchbase connection string is not set")
+        missing_vars.append("connection_string")
     if not username:
-        logger.error(
-            "Environment variable CB_USERNAME with Database username is not set"
-        )
-        missing_vars.append("CB_USERNAME")
+        logger.error("Couchbase database user is not set")
+        missing_vars.append("username")
     if not password:
-        logger.error(
-            "Environment variable CB_PASSWORD with Database password is not set"
-        )
-        missing_vars.append("CB_PASSWORD")
+        logger.error("Couchbase database password is not set")
+        missing_vars.append("password")
     if not bucket_name:
-        logger.error(
-            "Environment variable CB_BUCKET_NAME with Database bucket name is not set"
-        )
-        missing_vars.append("CB_BUCKET_NAME")
+        logger.error("Couchbase bucket name is not set")
+        missing_vars.append("bucket_name")
+
     if missing_vars:
-        error_msg = f"Missing required environment variables: {', '.join(missing_vars)}"
+        error_msg = f"Missing required configuration: {', '.join(missing_vars)}"
         logger.error(error_msg)
         raise ValueError(error_msg)
 
@@ -75,7 +149,9 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
         logger.info("Successfully connected to Couchbase cluster")
 
         bucket = cluster.bucket(bucket_name)
-        yield AppContext(cluster=cluster, bucket=bucket)
+        yield AppContext(
+            cluster=cluster, bucket=bucket, read_only_query_mode=read_only_query_mode
+        )
 
     except Exception as e:
         logger.error(f"Failed to connect to Couchbase: {e}")
@@ -181,18 +257,43 @@ def run_sql_plus_plus_query(
 ) -> list[dict[str, Any]]:
     """Run a SQL++ query on a scope and return the results as a list of JSON objects."""
     bucket = ctx.request_context.lifespan_context.bucket
+    read_only_query_mode = ctx.request_context.lifespan_context.read_only_query_mode
+    logger.info(f"Running SQL++ queries in read-only mode: {read_only_query_mode}")
 
     try:
         scope = bucket.scope(scope_name)
-        result = scope.query(query)
+
         results = []
-        for row in result:
-            results.append(row)
-        return results
+        # If read-only mode is enabled, check if the query is a data or structure modification query
+        if read_only_query_mode:
+            data_modification_query = modifies_data(parse_sqlpp(query))
+            structure_modification_query = modifies_structure(parse_sqlpp(query))
+
+            if data_modification_query:
+                logger.error("Data modification query is not allowed in read-only mode")
+                raise ValueError(
+                    "Data modification query is not allowed in read-only mode"
+                )
+            if structure_modification_query:
+                logger.error(
+                    "Structure modification query is not allowed in read-only mode"
+                )
+                raise ValueError(
+                    "Structure modification query is not allowed in read-only mode"
+                )
+
+        # Run the query if it is not a data or structure modification query
+        if not read_only_query_mode or not (
+            data_modification_query or structure_modification_query
+        ):
+            result = scope.query(query)
+            for row in result:
+                results.append(row)
+            return results
     except Exception as e:
         logger.error(f"Error running query: {str(e)}", exc_info=True)
         raise
 
 
 if __name__ == "__main__":
-    mcp.run(transport="stdio")
+    main()
