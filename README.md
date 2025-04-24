@@ -153,19 +153,21 @@ The MCP server can be run with the environment variables being used to configure
 
 ```bash
 docker run -i \
-  -e CB_CONNECTION_STRING='couchbase://localhost' \
-  -e CB_USERNAME='Administrator' \
-  -e CB_PASSWORD='password' \
-  -e CB_BUCKET_NAME='default' \
-  -e MCP_TRANSPORT='stdio' \
+  -e CB_CONNECTION_STRING='<couchbase_connection_string>' \
+  -e CB_USERNAME='<database_user>' \
+  -e CB_PASSWORD='<database_password>' \
+  -e CB_BUCKET_NAME='<bucket_name>' \
+  -e MCP_TRANSPORT='stdio/sse' \
+  -e READ_ONLY_QUERY_MODE="true/false" \
+
   mcp/couchbase
 ```
 
 ### Risks Associated with LLMs
 
 - The use of large language models and similar technology involves risks, including the potential for inaccurate or harmful outputs.
-- Couchbase does not review or evaluate the quality or accuracy of such outputs, and such outputs may not reflect Couchbase’s views.
-- You are solely responsible for determining whether to use large language models and related technology, and for complying with any license terms, terms of use, and your organization’s policies governing your use of the same.
+- Couchbase does not review or evaluate the quality or accuracy of such outputs, and such outputs may not reflect Couchbase's views.
+- You are solely responsible for determining whether to use large language models and related technology, and for complying with any license terms, terms of use, and your organization's policies governing your use of the same.
 
 ## Troubleshooting Tips
 
