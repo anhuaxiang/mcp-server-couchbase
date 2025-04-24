@@ -10,7 +10,7 @@ An [MCP](https://modelcontextprotocol.io/) server implementation of Couchbase th
 - Upsert a document by ID to a specified scope and collection
 - Delete a document by ID from a specified scope and collection
 - Run a [SQL++ query](https://www.couchbase.com/sqlplusplus/) on a specified scope
-  - There is an option in the MCP server, `READ_ONLY_QUERY_MODE` that is set to true by default to disable running queries that change the data or the underlying collection structure.
+  - There is an option in the MCP server, `READ_ONLY_QUERY_MODE` that is set to true by default to disable running SQL++ queries that change the data or the underlying collection structure. Note that the documents can still be updated by ID.
 
 ## Prerequisites
 
@@ -136,7 +136,7 @@ There is an option to run the MCP server in [Server-Sent Events (SSE)](https://m
 
 By default, the MCP server will run on port 8080 but this can be configured using the `FASTMCP_PORT` environment variable.
 
-> uv run src/mcp_server.py --connection-string='couchbase_connection_string>' --username='database_username' --password='database_password' --bucket-name='couchbase_bucket_to_use' --read-only-query-mode=true --transport=sse
+> uv run src/mcp_server.py --connection-string='<couchbase_connection_string>' --username='<database_username>' --password='<database_password>' --bucket-name='<couchbase_bucket_to_use>' --read-only-query-mode=true --transport=sse
 
 The server will be available on http://localhost:8080/sse. This can be used in MCP clients supporting SSE transport mode.
 
@@ -168,6 +168,9 @@ docker run -i \
 - The use of large language models and similar technology involves risks, including the potential for inaccurate or harmful outputs.
 - Couchbase does not review or evaluate the quality or accuracy of such outputs, and such outputs may not reflect Couchbase's views.
 - You are solely responsible for determining whether to use large language models and related technology, and for complying with any license terms, terms of use, and your organization's policies governing your use of the same.
+
+### Managed MCP Server
+The Couchbase MCP server can also be used as a managed server in your agentic applications via [Smithery.ai](https://smithery.ai/server/@Couchbase-Ecosystem/mcp-server-couchbase).
 
 ## Troubleshooting Tips
 
