@@ -1,6 +1,6 @@
 [project]
 name = "mcp-couchbase"
-version = "0.2.0"
+version = "0.3.0"
 description = "Couchbase MCP Server - The Developer Data Platform for Critical Applications in Our AI World"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -26,3 +26,7 @@ dependencies = [
 Homepage = "https://github.com/Couchbase-Ecosystem/mcp-server-couchbase"
 Documentation = "https://github.com/Couchbase-Ecosystem/mcp-server-couchbase#readme"
 Issues = "https://github.com/Couchbase-Ecosystem/mcp-server-couchbase/issues"
+
+
+[project.scripts]
+mcp-couchbase = "mcp_server:main"
